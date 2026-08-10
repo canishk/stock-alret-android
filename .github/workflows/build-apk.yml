@@ -74,9 +74,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           mkdir -p releases
           cp artifact/app-debug.apk releases/stock-price-alert-debug.apk
-          cp .github/main-README.md README.md
           git checkout --orphan main
           git reset --hard
-          git add -f releases/stock-price-alert-debug.apk README.md
-          git commit -m "Update debug APK and README from CI build ${GITHUB_SHA:0:7}"
+          git add -f releases/stock-price-alert-debug.apk
+          git commit -m "Update debug APK from CI build ${GITHUB_SHA:0:7}"
           git push -f origin main
