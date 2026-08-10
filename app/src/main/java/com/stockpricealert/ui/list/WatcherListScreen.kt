@@ -2,6 +2,8 @@ package com.stockpricealert.ui.list
 
 import android.Manifest
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,9 +19,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -30,6 +36,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -46,8 +53,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.stockpricealert.domain.StockWatcher
@@ -64,6 +69,8 @@ fun WatcherListScreen(
     val priceStates by viewModel.priceStates.collectAsState()
     val systemHealth by viewModel.systemHealthState.collectAsState()
     var watcherToDelete by remember { mutableStateOf<StockWatcher?>(null) }
+    var healthExpanded by remember { mutableStateOf(false) }
+    var lastNotifiedIssueKey by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -90,6 +97,23 @@ fun WatcherListScreen(
         }
     }
 
+    LaunchedEffect(systemHealth.issueKey) {
+        if (!systemHealth.isHealthy && systemHealth.issueKey != lastNotifiedIssueKey) {
+            val result = snackbarHostState.showSnackbar(
+                message = "App health needs attention. Check settings at top.",
+                actionLabel = "View"
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                healthExpanded = true
+            }
+            lastNotifiedIssueKey = systemHealth.issueKey
+        }
+        if (systemHealth.isHealthy) {
+            lastNotifiedIssueKey = null
+            healthExpanded = false
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Stock Watchers") })
@@ -108,21 +132,25 @@ fun WatcherListScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                SystemHealthCard(
-                    health = systemHealth,
-                    onRequestNotificationPermission = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            viewModel.openNotificationSettings()
-                        }
-                    },
-                    onOpenNotificationSettings = viewModel::openNotificationSettings,
-                    onTestNotification = viewModel::testNotification,
-                    onOpenBatterySettings = viewModel::openBatterySettings,
-                    onTestBackgroundCheck = viewModel::runTestBackgroundCheck
-                )
+            if (!systemHealth.isHealthy) {
+                item {
+                    AppHealthSection(
+                        health = systemHealth,
+                        expanded = healthExpanded,
+                        onToggleExpanded = { healthExpanded = !healthExpanded },
+                        onRequestNotificationPermission = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                viewModel.openNotificationSettings()
+                            }
+                        },
+                        onOpenNotificationSettings = viewModel::openNotificationSettings,
+                        onTestNotification = viewModel::testNotification,
+                        onOpenBatterySettings = viewModel::openBatterySettings,
+                        onTestBackgroundCheck = viewModel::runTestBackgroundCheck
+                    )
+                }
             }
 
             if (watchers.isEmpty()) {
@@ -178,74 +206,89 @@ fun WatcherListScreen(
 }
 
 @Composable
-private fun SystemHealthCard(
+private fun AppHealthSection(
     health: SystemHealthState,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
     onRequestNotificationPermission: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onTestNotification: () -> Unit,
     onOpenBatterySettings: () -> Unit,
     onTestBackgroundCheck: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        )
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = "App Health",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = if (health.notificationsEnabled) "Notifications: Allowed" else "Notifications: Blocked",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (health.notificationsEnabled) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.error
-                }
-            )
-            Text(
-                text = if (health.batteryUnrestricted) {
-                    "Background: Unrestricted"
-                } else {
-                    "Background: Battery restricted"
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (health.batteryUnrestricted) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.error
-                }
-            )
-            health.lastBackgroundCheckAt?.let { fetchedAt ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggleExpanded),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.size(20.dp)
+                )
                 Text(
-                    text = "Last background check: ${DateTimeFormatterUtil.formatEpochMillis(fetchedAt)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "App Health: ${health.issueSummary()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.onErrorContainer
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onRequestNotificationPermission) {
-                    Text("Allow Notifications")
+            if (expanded) {
+                if (!health.notificationsEnabled) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onRequestNotificationPermission) {
+                            Text("Allow Notifications")
+                        }
+                        OutlinedButton(onClick = onOpenNotificationSettings) {
+                            Text("Notification Settings")
+                        }
+                    }
                 }
-                OutlinedButton(onClick = onOpenNotificationSettings) {
-                    Text("Notification Settings")
+
+                if (!health.batteryUnrestricted) {
+                    OutlinedButton(onClick = onOpenBatterySettings) {
+                        Text("Battery Settings")
+                    }
                 }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onTestNotification) {
-                    Text("Test Notification")
+
+                health.lastBackgroundCheckAt?.let { fetchedAt ->
+                    Text(
+                        text = "Last background check: ${DateTimeFormatterUtil.formatEpochMillis(fetchedAt)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
                 }
-                OutlinedButton(onClick = onOpenBatterySettings) {
-                    Text("Battery Settings")
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onTestNotification) {
+                        Text("Test Notification")
+                    }
+                    TextButton(onClick = onTestBackgroundCheck) {
+                        Text("Test Background Check")
+                    }
                 }
-            }
-            OutlinedButton(onClick = onTestBackgroundCheck) {
-                Text("Test Background Check")
             }
         }
     }
