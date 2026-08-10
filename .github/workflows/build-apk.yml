@@ -3,11 +3,8 @@ name: Build Debug APK
 on:
   push:
     branches:
-      - cursor/stock-price-alert-android
+      - main
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   build:
@@ -53,29 +50,3 @@ jobs:
           name: stock-price-alert-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
-
-  publish-main:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download APK artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: stock-price-alert-debug
-          path: artifact
-
-      - name: Push APK to orphan main
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          mkdir -p releases
-          cp artifact/app-debug.apk releases/stock-price-alert-debug.apk
-          git checkout --orphan main
-          git reset --hard
-          git add -f releases/stock-price-alert-debug.apk
-          git commit -m "Update debug APK from CI build ${GITHUB_SHA:0:7}"
-          git push -f origin main

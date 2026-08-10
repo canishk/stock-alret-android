@@ -8,6 +8,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+releases/
+local.properties.example.bak
 *.apk
 *.ap_
 *.aab
