@@ -28,6 +28,8 @@ interface StockWatcherDao {
     @Delete
     suspend fun delete(watcher: StockWatcherEntity)
 
-    @Query("UPDATE stock_watchers SET lastNsePrice = :price WHERE id = :id")
-    suspend fun updateLastNsePrice(id: Long, price: Double)
+    @Query(
+        "UPDATE stock_watchers SET lastNsePrice = :nse, lastBsePrice = :bse, lastFetchedAt = :fetchedAt WHERE id = :id"
+    )
+    suspend fun updateLastFetchedQuote(id: Long, nse: Double, bse: Double?, fetchedAt: Long)
 }

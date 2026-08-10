@@ -4,5 +4,6 @@ data class PriceFetchState(
     val isLoading: Boolean = false,
     val nsePrice: Double? = null,
     val bsePrice: Double? = null,
+    val fetchedAt: Long? = null,
     val error: String? = null
 )

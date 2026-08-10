@@ -1,5 +1,7 @@
 package com.stockpricealert.ui.list
 
+import android.Manifest
+import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,10 +28,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,9 +43,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.stockpricealert.domain.StockWatcher
+import com.stockpricealert.util.DateTimeFormatterUtil
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +62,33 @@ fun WatcherListScreen(
 ) {
     val watchers by viewModel.watchers.collectAsState()
     val priceStates by viewModel.priceStates.collectAsState()
+    val systemHealth by viewModel.systemHealthState.collectAsState()
     var watcherToDelete by remember { mutableStateOf<StockWatcher?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) {
+        viewModel.refreshSystemHealth()
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshSystemHealth()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(systemHealth.message) {
+        systemHealth.message?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearMessage()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -60,28 +98,48 @@ fun WatcherListScreen(
             FloatingActionButton(onClick = onAddClick) {
                 Icon(Icons.Default.Add, contentDescription = "Add watcher")
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        if (watchers.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No watchers yet.\nTap + to add a stock alert.",
-                    style = MaterialTheme.typography.bodyLarge
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                SystemHealthCard(
+                    health = systemHealth,
+                    onRequestNotificationPermission = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            viewModel.openNotificationSettings()
+                        }
+                    },
+                    onOpenNotificationSettings = viewModel::openNotificationSettings,
+                    onTestNotification = viewModel::testNotification,
+                    onOpenBatterySettings = viewModel::openBatterySettings,
+                    onTestBackgroundCheck = viewModel::runTestBackgroundCheck
                 )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+
+            if (watchers.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No watchers yet.\nTap + to add a stock alert.",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            } else {
                 items(watchers, key = { it.id }) { watcher ->
                     WatcherCard(
                         watcher = watcher,
@@ -116,6 +174,80 @@ fun WatcherListScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun SystemHealthCard(
+    health: SystemHealthState,
+    onRequestNotificationPermission: () -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+    onTestNotification: () -> Unit,
+    onOpenBatterySettings: () -> Unit,
+    onTestBackgroundCheck: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "App Health",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (health.notificationsEnabled) "Notifications: Allowed" else "Notifications: Blocked",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (health.notificationsEnabled) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                }
+            )
+            Text(
+                text = if (health.batteryUnrestricted) {
+                    "Background: Unrestricted"
+                } else {
+                    "Background: Battery restricted"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (health.batteryUnrestricted) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                }
+            )
+            health.lastBackgroundCheckAt?.let { fetchedAt ->
+                Text(
+                    text = "Last background check: ${DateTimeFormatterUtil.formatEpochMillis(fetchedAt)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onRequestNotificationPermission) {
+                    Text("Allow Notifications")
+                }
+                OutlinedButton(onClick = onOpenNotificationSettings) {
+                    Text("Notification Settings")
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onTestNotification) {
+                    Text("Test Notification")
+                }
+                OutlinedButton(onClick = onOpenBatterySettings) {
+                    Text("Battery Settings")
+                }
+            }
+            OutlinedButton(onClick = onTestBackgroundCheck) {
+                Text("Test Background Check")
+            }
+        }
     }
 }
 
@@ -157,7 +289,8 @@ private fun WatcherCard(
             )
 
             val displayNse = priceState?.nsePrice ?: watcher.lastNsePrice
-            val displayBse = priceState?.bsePrice
+            val displayBse = priceState?.bsePrice ?: watcher.lastBsePrice
+            val displayFetchedAt = priceState?.fetchedAt ?: watcher.lastFetchedAt
 
             displayNse?.let { price ->
                 Text(
@@ -169,6 +302,13 @@ private fun WatcherCard(
             displayBse?.let { price ->
                 Text(
                     text = "BSE: ₹%.2f".format(price),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            displayFetchedAt?.let { fetchedAt ->
+                Text(
+                    text = "Last fetched: ${DateTimeFormatterUtil.formatEpochMillis(fetchedAt)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

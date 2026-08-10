@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.stockpricealert.StockAlertApp
+import com.stockpricealert.util.AppPreferences
 import com.stockpricealert.util.MarketHoursChecker
 
 class StockPriceCheckWorker(
@@ -13,7 +14,9 @@ class StockPriceCheckWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        if (!MarketHoursChecker.isWithinTradingWindow()) {
+        val forceRun = inputData.getBoolean(KEY_FORCE_RUN, false)
+
+        if (!forceRun && !MarketHoursChecker.isWithinTradingWindow()) {
             Log.d(TAG, "Outside trading window, skipping")
             return Result.success()
         }
@@ -25,6 +28,7 @@ class StockPriceCheckWorker(
         val watchers = repository.getActiveWatchers()
         if (watchers.isEmpty()) {
             Log.d(TAG, "No active watchers")
+            AppPreferences.setLastBackgroundCheckAt(applicationContext, System.currentTimeMillis())
             return Result.success()
         }
 
@@ -53,8 +57,11 @@ class StockPriceCheckWorker(
                 )
             }
 
-            repository.updateLastNsePrice(watcher.id, quote.nsePrice)
+            repository.recordFetchedQuote(watcher.id, quote)
         }
+
+        AppPreferences.setLastBackgroundCheckAt(applicationContext, System.currentTimeMillis())
+        Log.d(TAG, "Background check completed (forceRun=$forceRun)")
 
         return Result.success()
     }
@@ -62,5 +69,7 @@ class StockPriceCheckWorker(
     companion object {
         const val TAG = "StockPriceCheck"
         const val WORK_NAME = "stock_price_check"
+        const val TEST_WORK_NAME = "stock_price_test_check"
+        const val KEY_FORCE_RUN = "force_run"
     }
 }

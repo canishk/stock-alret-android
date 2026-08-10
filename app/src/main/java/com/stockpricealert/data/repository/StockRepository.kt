@@ -37,8 +37,13 @@ class StockRepository(
         dao.delete(watcher.toEntity())
     }
 
-    suspend fun updateLastNsePrice(id: Long, price: Double) {
-        dao.updateLastNsePrice(id, price)
+    suspend fun recordFetchedQuote(watcherId: Long, quote: StockQuote) {
+        dao.updateLastFetchedQuote(
+            id = watcherId,
+            nse = quote.nsePrice,
+            bse = quote.bsePrice,
+            fetchedAt = System.currentTimeMillis()
+        )
     }
 
     suspend fun fetchQuote(stockName: String): Result<StockQuote> {
@@ -89,6 +94,8 @@ class StockRepository(
         alertType = AlertType.fromString(alertType),
         isActive = isActive,
         lastNsePrice = lastNsePrice,
+        lastBsePrice = lastBsePrice,
+        lastFetchedAt = lastFetchedAt,
         createdAt = createdAt
     )
 
@@ -99,6 +106,8 @@ class StockRepository(
         alertType = alertType.name,
         isActive = isActive,
         lastNsePrice = lastNsePrice,
+        lastBsePrice = lastBsePrice,
+        lastFetchedAt = lastFetchedAt,
         createdAt = createdAt
     )
 }

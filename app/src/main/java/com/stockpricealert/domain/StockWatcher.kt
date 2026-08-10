@@ -7,5 +7,7 @@ data class StockWatcher(
     val alertType: AlertType,
     val isActive: Boolean = true,
     val lastNsePrice: Double? = null,
+    val lastBsePrice: Double? = null,
+    val lastFetchedAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis()
 )

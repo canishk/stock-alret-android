@@ -12,6 +12,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.stockpricealert.MainActivity
 import com.stockpricealert.R
 import com.stockpricealert.domain.AlertType
+import com.stockpricealert.util.NotificationPermissionHelper
 
 class AlertNotificationManager(private val context: Context) {
     private val notificationManager = NotificationManagerCompat.from(context)
@@ -46,6 +47,8 @@ class AlertNotificationManager(private val context: Context) {
         bsePrice: Double?,
         notificationId: Int
     ) {
+        if (!NotificationPermissionHelper.areNotificationsEnabled(context)) return
+
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -78,8 +81,25 @@ class AlertNotificationManager(private val context: Context) {
         notificationManager.notify(notificationId, notification)
     }
 
+    fun showTestAlert(): Result<Unit> {
+        if (!NotificationPermissionHelper.areNotificationsEnabled(context)) {
+            return Result.failure(IllegalStateException("Notifications are blocked. Allow notifications first."))
+        }
+
+        showPriceAlert(
+            stockName = "TEST STOCK",
+            alertType = AlertType.HIGH,
+            targetPrice = 1000.0,
+            nsePrice = 1012.5,
+            bsePrice = 1010.75,
+            notificationId = TEST_NOTIFICATION_ID
+        )
+        return Result.success(Unit)
+    }
+
     companion object {
         const val CHANNEL_ID = "stock_price_alerts"
+        private const val TEST_NOTIFICATION_ID = 9999
         private val VIBRATION_PATTERN = longArrayOf(0, 300, 150, 300)
     }
 }

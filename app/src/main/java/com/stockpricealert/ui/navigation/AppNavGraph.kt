@@ -1,12 +1,15 @@
 package com.stockpricealert.ui.navigation
 
+import android.app.Application
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.stockpricealert.StockAlertApp
 import com.stockpricealert.data.repository.StockRepository
 import com.stockpricealert.ui.form.WatcherFormScreen
 import com.stockpricealert.ui.form.WatcherFormViewModel
@@ -32,11 +35,18 @@ fun AppNavGraph(
     onDataChanged: () -> Unit
 ) {
     val navController = rememberNavController()
+    val application = LocalContext.current.applicationContext as Application
+    val notificationManager = (application as StockAlertApp).notificationManager
 
     NavHost(navController = navController, startDestination = Routes.LIST) {
         composable(Routes.LIST) {
             val viewModel: WatcherListViewModel = viewModel(
-                factory = WatcherListViewModel.Factory(repository, onDataChanged)
+                factory = WatcherListViewModel.Factory(
+                    application = application,
+                    repository = repository,
+                    notificationManager = notificationManager,
+                    onDataChanged = onDataChanged
+                )
             )
             WatcherListScreen(
                 viewModel = viewModel,
