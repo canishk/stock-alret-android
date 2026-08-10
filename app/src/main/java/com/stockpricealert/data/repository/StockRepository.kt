@@ -46,6 +46,19 @@ class StockRepository(
         )
     }
 
+    suspend fun pauseWatcher(id: Long) {
+        dao.updateActive(id, false)
+    }
+
+    suspend fun resumeWatcher(id: Long) {
+        dao.updateActive(id, true)
+        dao.clearLastNsePrice(id)
+    }
+
+    suspend fun rearmWatcher(id: Long) {
+        dao.clearLastNsePrice(id)
+    }
+
     suspend fun fetchQuote(stockName: String): Result<StockQuote> {
         return try {
             val response = api.getStock(stockName)

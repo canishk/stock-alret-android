@@ -64,7 +64,7 @@ class AlertNotificationManager(private val context: Context) {
         val text = "NSE: ₹%.2f | BSE: $bseText".format(nsePrice)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(

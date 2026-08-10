@@ -32,4 +32,10 @@ interface StockWatcherDao {
         "UPDATE stock_watchers SET lastNsePrice = :nse, lastBsePrice = :bse, lastFetchedAt = :fetchedAt WHERE id = :id"
     )
     suspend fun updateLastFetchedQuote(id: Long, nse: Double, bse: Double?, fetchedAt: Long)
+
+    @Query("UPDATE stock_watchers SET isActive = :active WHERE id = :id")
+    suspend fun updateActive(id: Long, active: Boolean)
+
+    @Query("UPDATE stock_watchers SET lastNsePrice = NULL WHERE id = :id")
+    suspend fun clearLastNsePrice(id: Long)
 }

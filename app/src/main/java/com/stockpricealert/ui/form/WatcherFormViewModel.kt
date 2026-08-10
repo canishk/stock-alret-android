@@ -81,16 +81,26 @@ class WatcherFormViewModel(
             _state.update { it.copy(isLoading = true, saveError = null) }
             try {
                 val existing = watcherId?.let { repository.getWatcher(it) }
+                val targetChanged = existing != null && existing.targetPrice != price
+                val typeChanged = existing != null && existing.alertType != current.alertType
+                val wasPaused = existing != null && !existing.isActive
+                val shouldRearm = existing == null || targetChanged || typeChanged || wasPaused
+
                 val watcher = StockWatcher(
                     id = watcherId ?: 0L,
                     stockName = stockName,
                     targetPrice = price,
                     alertType = current.alertType,
                     isActive = true,
-                    lastNsePrice = existing?.lastNsePrice,
+                    lastNsePrice = if (shouldRearm) null else existing?.lastNsePrice,
+                    lastBsePrice = existing?.lastBsePrice,
+                    lastFetchedAt = existing?.lastFetchedAt,
                     createdAt = existing?.createdAt ?: System.currentTimeMillis()
                 )
-                repository.saveWatcher(watcher)
+                val savedId = repository.saveWatcher(watcher)
+                if (shouldRearm && watcherId != null) {
+                    repository.rearmWatcher(savedId)
+                }
                 onDataChanged()
                 onSaved()
             } catch (e: Exception) {

@@ -122,7 +122,7 @@ class WatcherListViewModel(
 
             repository.fetchQuote(watcher.stockName)
                 .onSuccess { quote ->
-                    if (repository.shouldTriggerAlert(
+                    if (watcher.isActive && repository.shouldTriggerAlert(
                             alertType = watcher.alertType,
                             targetPrice = watcher.targetPrice,
                             currentNsePrice = quote.nsePrice,
@@ -137,6 +137,7 @@ class WatcherListViewModel(
                             bsePrice = quote.bsePrice,
                             notificationId = watcher.id.toInt()
                         )
+                        repository.pauseWatcher(watcher.id)
                     }
                     repository.recordFetchedQuote(watcher.id, quote)
                     _priceStates.update {
@@ -201,6 +202,13 @@ class WatcherListViewModel(
         viewModelScope.launch {
             repository.deleteWatcher(watcher)
             _priceStates.update { it - watcher.id }
+            onDataChanged()
+        }
+    }
+
+    fun resumeWatcher(watcher: StockWatcher) {
+        viewModelScope.launch {
+            repository.resumeWatcher(watcher.id)
             onDataChanged()
         }
     }

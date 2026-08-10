@@ -29,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.stockpricealert.domain.AlertType
+import com.stockpricealert.ui.theme.BearRed
+import com.stockpricealert.ui.theme.BullBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,10 +105,11 @@ fun WatcherFormScreen(
                     )
                     Text(
                         text = if (type == AlertType.HIGH) {
-                            "HIGH (at or above target)"
+                            "Bull — HIGH (at or above target)"
                         } else {
-                            "LOW (at or below target)"
+                            "Bear — LOW (at or below target)"
                         },
+                        color = if (type == AlertType.HIGH) BullBlue else BearRed,
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }

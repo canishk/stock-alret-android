@@ -75,6 +75,7 @@ class StockPriceCheckWorker(
                         bsePrice = quote.bsePrice,
                         notificationId = watcher.id.toInt()
                     )
+                    repository.pauseWatcher(watcher.id)
                 }
 
                 repository.recordFetchedQuote(watcher.id, quote)

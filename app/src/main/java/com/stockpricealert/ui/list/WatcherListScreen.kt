@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -58,7 +60,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.stockpricealert.domain.AlertType
 import com.stockpricealert.domain.StockWatcher
+import com.stockpricealert.ui.theme.BearRed
+import com.stockpricealert.ui.theme.BullBlue
+import com.stockpricealert.ui.theme.PausedAmber
 import com.stockpricealert.util.BackgroundCheckResult
 import com.stockpricealert.util.DateTimeFormatterUtil
 
@@ -208,6 +214,7 @@ fun WatcherListScreen(
                         priceState = priceStates[watcher.id],
                         onClick = { onEditClick(watcher.id) },
                         onFetchPriceClick = { viewModel.fetchCurrentPrice(watcher) },
+                        onResumeClick = { viewModel.resumeWatcher(watcher) },
                         onDeleteClick = { watcherToDelete = watcher }
                     )
                 }
@@ -359,9 +366,27 @@ private fun WatcherCard(
     priceState: PriceFetchState?,
     onClick: () -> Unit,
     onFetchPriceClick: () -> Unit,
+    onResumeClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    val accentColor = when (watcher.alertType) {
+        AlertType.HIGH -> BullBlue
+        AlertType.LOW -> BearRed
+    }
+    val cardColors = if (watcher.isActive) {
+        CardDefaults.cardColors()
+    } else {
+        CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(2.dp, accentColor, MaterialTheme.shapes.medium),
+        colors = cardColors
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -384,8 +409,30 @@ private fun WatcherCard(
                     Icon(Icons.Default.Delete, contentDescription = "Delete")
                 }
             }
+
+            Row(
+                modifier = Modifier.padding(bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = when (watcher.alertType) {
+                        AlertType.HIGH -> "Bull — HIGH"
+                        AlertType.LOW -> "Bear — LOW"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = accentColor,
+                    modifier = Modifier
+                        .clickable(onClick = onClick)
+                )
+                Text(
+                    text = if (watcher.isActive) "Watching" else "Paused — alert triggered",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (watcher.isActive) BullBlue else PausedAmber
+                )
+            }
+
             Text(
-                text = "Target: ₹%.2f (${watcher.alertType.name})".format(watcher.targetPrice),
+                text = "Target: ₹%.2f".format(watcher.targetPrice),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.clickable(onClick = onClick)
             )
@@ -424,36 +471,39 @@ private fun WatcherCard(
                 )
             }
 
-            OutlinedButton(
-                onClick = onFetchPriceClick,
-                enabled = priceState?.isLoading != true,
-                modifier = Modifier.padding(top = 8.dp)
+            Row(
+                modifier = Modifier.padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (priceState?.isLoading == true) {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .size(18.dp)
-                            .padding(end = 8.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(18.dp)
-                            .padding(end = 4.dp)
-                    )
+                OutlinedButton(
+                    onClick = onFetchPriceClick,
+                    enabled = priceState?.isLoading != true
+                ) {
+                    if (priceState?.isLoading == true) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .padding(end = 8.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .padding(end = 4.dp)
+                        )
+                    }
+                    Text("Fetch Price")
                 }
-                Text("Fetch Price")
-            }
 
-            Text(
-                text = if (watcher.isActive) "Active" else "Inactive",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+                if (!watcher.isActive) {
+                    Button(onClick = onResumeClick) {
+                        Text("Resume")
+                    }
+                }
+            }
         }
     }
 }
