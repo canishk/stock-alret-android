@@ -122,6 +122,22 @@ class WatcherListViewModel(
 
             repository.fetchQuote(watcher.stockName)
                 .onSuccess { quote ->
+                    if (repository.shouldTriggerAlert(
+                            alertType = watcher.alertType,
+                            targetPrice = watcher.targetPrice,
+                            currentNsePrice = quote.nsePrice,
+                            lastNsePrice = watcher.lastNsePrice
+                        )
+                    ) {
+                        notificationManager.showPriceAlert(
+                            stockName = watcher.stockName,
+                            alertType = watcher.alertType,
+                            targetPrice = watcher.targetPrice,
+                            nsePrice = quote.nsePrice,
+                            bsePrice = quote.bsePrice,
+                            notificationId = watcher.id.toInt()
+                        )
+                    }
                     repository.recordFetchedQuote(watcher.id, quote)
                     _priceStates.update {
                         it + (

@@ -79,11 +79,17 @@ class StockRepository(
         currentNsePrice: Double,
         lastNsePrice: Double?
     ): Boolean {
-        if (lastNsePrice == null) return false
-
         return when (alertType) {
-            AlertType.HIGH -> lastNsePrice < targetPrice && currentNsePrice >= targetPrice
-            AlertType.LOW -> lastNsePrice > targetPrice && currentNsePrice <= targetPrice
+            AlertType.HIGH -> {
+                val breached = currentNsePrice >= targetPrice
+                if (lastNsePrice == null) breached
+                else lastNsePrice < targetPrice && breached
+            }
+            AlertType.LOW -> {
+                val breached = currentNsePrice <= targetPrice
+                if (lastNsePrice == null) breached
+                else lastNsePrice > targetPrice && breached
+            }
         }
     }
 
