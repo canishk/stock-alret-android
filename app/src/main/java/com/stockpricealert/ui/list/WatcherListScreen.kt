@@ -21,12 +21,15 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -56,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.stockpricealert.domain.StockWatcher
+import com.stockpricealert.util.BackgroundCheckResult
 import com.stockpricealert.util.DateTimeFormatterUtil
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -71,6 +75,7 @@ fun WatcherListScreen(
     var watcherToDelete by remember { mutableStateOf<StockWatcher?>(null) }
     var healthExpanded by remember { mutableStateOf(false) }
     var lastNotifiedIssueKey by remember { mutableStateOf<String?>(null) }
+    var topBarMenuExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -116,7 +121,33 @@ fun WatcherListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Stock Watchers") })
+            TopAppBar(
+                title = { Text("Stock Watchers") },
+                actions = {
+                    IconButton(onClick = { topBarMenuExpanded = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                    }
+                    DropdownMenu(
+                        expanded = topBarMenuExpanded,
+                        onDismissRequest = { topBarMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Test Background Check") },
+                            onClick = {
+                                topBarMenuExpanded = false
+                                viewModel.runTestBackgroundCheck()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Refresh status") },
+                            onClick = {
+                                topBarMenuExpanded = false
+                                viewModel.refreshSystemHealth()
+                            }
+                        )
+                    }
+                }
+            )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onAddClick) {
@@ -132,6 +163,10 @@ fun WatcherListScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item {
+                BackgroundCheckStatusRow(health = systemHealth)
+            }
+
             if (!systemHealth.isHealthy) {
                 item {
                     AppHealthSection(
@@ -147,8 +182,7 @@ fun WatcherListScreen(
                         },
                         onOpenNotificationSettings = viewModel::openNotificationSettings,
                         onTestNotification = viewModel::testNotification,
-                        onOpenBatterySettings = viewModel::openBatterySettings,
-                        onTestBackgroundCheck = viewModel::runTestBackgroundCheck
+                        onOpenBatterySettings = viewModel::openBatterySettings
                     )
                 }
             }
@@ -206,6 +240,45 @@ fun WatcherListScreen(
 }
 
 @Composable
+private fun BackgroundCheckStatusRow(health: SystemHealthState) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (health.isBackgroundCheckRunning) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(14.dp),
+                strokeWidth = 2.dp
+            )
+            Text(
+                text = "Background: Running...",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            val result = health.lastBackgroundResult
+            val text = if (result == null) {
+                "Background: No check run yet"
+            } else {
+                val time = DateTimeFormatterUtil.formatEpochMillis(result.completedAt)
+                "Background: Last run $time — ${result.message}"
+            }
+            val color = when (result?.status) {
+                BackgroundCheckResult.STATUS_SKIPPED,
+                BackgroundCheckResult.STATUS_FAILED -> MaterialTheme.colorScheme.error
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = color
+            )
+        }
+    }
+}
+
+@Composable
 private fun AppHealthSection(
     health: SystemHealthState,
     expanded: Boolean,
@@ -213,8 +286,7 @@ private fun AppHealthSection(
     onRequestNotificationPermission: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onTestNotification: () -> Unit,
-    onOpenBatterySettings: () -> Unit,
-    onTestBackgroundCheck: () -> Unit
+    onOpenBatterySettings: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -273,21 +345,8 @@ private fun AppHealthSection(
                     }
                 }
 
-                health.lastBackgroundCheckAt?.let { fetchedAt ->
-                    Text(
-                        text = "Last background check: ${DateTimeFormatterUtil.formatEpochMillis(fetchedAt)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = onTestNotification) {
-                        Text("Test Notification")
-                    }
-                    TextButton(onClick = onTestBackgroundCheck) {
-                        Text("Test Background Check")
-                    }
+                TextButton(onClick = onTestNotification) {
+                    Text("Test Notification")
                 }
             }
         }

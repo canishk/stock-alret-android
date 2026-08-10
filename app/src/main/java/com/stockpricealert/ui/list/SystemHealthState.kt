@@ -1,9 +1,21 @@
 package com.stockpricealert.ui.list
 
+import com.stockpricealert.util.BackgroundCheckResult
+
+enum class BackgroundJobState {
+    Idle,
+    Queued,
+    Running,
+    Succeeded,
+    Failed
+}
+
 data class SystemHealthState(
     val notificationsEnabled: Boolean = false,
     val batteryUnrestricted: Boolean = false,
-    val lastBackgroundCheckAt: Long? = null,
+    val lastBackgroundResult: BackgroundCheckResult? = null,
+    val isBackgroundCheckRunning: Boolean = false,
+    val backgroundJobState: BackgroundJobState = BackgroundJobState.Idle,
     val message: String? = null
 ) {
     val isHealthy: Boolean
@@ -11,6 +23,9 @@ data class SystemHealthState(
 
     val issueKey: String
         get() = "n$notificationsEnabled-b$batteryUnrestricted"
+
+    val lastBackgroundCheckAt: Long?
+        get() = lastBackgroundResult?.completedAt
 
     fun issueSummary(): String {
         val issues = buildList {

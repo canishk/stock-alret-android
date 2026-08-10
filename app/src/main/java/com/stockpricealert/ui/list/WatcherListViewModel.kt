@@ -2,20 +2,26 @@ package com.stockpricealert.ui.list
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.stockpricealert.data.repository.StockRepository
 import com.stockpricealert.domain.StockWatcher
 import com.stockpricealert.notification.AlertNotificationManager
 import com.stockpricealert.util.AppPreferences
 import com.stockpricealert.util.BackgroundHealthHelper
 import com.stockpricealert.util.NotificationPermissionHelper
+import com.stockpricealert.worker.StockPriceCheckWorker
 import com.stockpricealert.worker.WorkScheduler
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -38,15 +44,74 @@ class WatcherListViewModel(
 
     init {
         refreshSystemHealth()
+        observeTestBackgroundWork()
+    }
+
+    private fun observeTestBackgroundWork() {
+        viewModelScope.launch {
+            val workManager = WorkManager.getInstance(getApplication())
+            callbackFlow {
+                val liveData = workManager.getWorkInfosForUniqueWorkLiveData(
+                    StockPriceCheckWorker.TEST_WORK_NAME
+                )
+                val observer = Observer<List<WorkInfo>> { workInfos ->
+                    trySend(workInfos)
+                }
+                liveData.observeForever(observer)
+                awaitClose { liveData.removeObserver(observer) }
+            }.collect { workInfos ->
+                handleTestWorkState(workInfos)
+            }
+        }
+    }
+
+    private fun handleTestWorkState(workInfos: List<WorkInfo>) {
+        val workInfo = workInfos.firstOrNull()
+        val state = workInfo?.state
+
+        val isRunning = state == WorkInfo.State.ENQUEUED ||
+            state == WorkInfo.State.RUNNING ||
+            state == WorkInfo.State.BLOCKED
+
+        val jobState = when (state) {
+            WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> BackgroundJobState.Queued
+            WorkInfo.State.RUNNING -> BackgroundJobState.Running
+            WorkInfo.State.SUCCEEDED -> BackgroundJobState.Succeeded
+            WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> BackgroundJobState.Failed
+            else -> BackgroundJobState.Idle
+        }
+
+        val wasRunning = _systemHealthState.value.isBackgroundCheckRunning
+
+        _systemHealthState.update {
+            it.copy(
+                isBackgroundCheckRunning = isRunning,
+                backgroundJobState = jobState
+            )
+        }
+
+        if (!isRunning && wasRunning &&
+            (state == WorkInfo.State.SUCCEEDED || state == WorkInfo.State.FAILED)
+        ) {
+            refreshSystemHealth()
+            val result = AppPreferences.getBackgroundCheckResult(getApplication())
+            val message = result?.message ?: when (state) {
+                WorkInfo.State.SUCCEEDED -> "Background check completed"
+                else -> "Background check failed"
+            }
+            _systemHealthState.update { it.copy(message = message) }
+        }
     }
 
     fun refreshSystemHealth() {
         val context = getApplication<Application>()
-        _systemHealthState.value = SystemHealthState(
-            notificationsEnabled = NotificationPermissionHelper.areNotificationsEnabled(context),
-            batteryUnrestricted = BackgroundHealthHelper.isIgnoringBatteryOptimizations(context),
-            lastBackgroundCheckAt = AppPreferences.getLastBackgroundCheckAt(context)
-        )
+        _systemHealthState.update {
+            it.copy(
+                notificationsEnabled = NotificationPermissionHelper.areNotificationsEnabled(context),
+                batteryUnrestricted = BackgroundHealthHelper.isIgnoringBatteryOptimizations(context),
+                lastBackgroundResult = AppPreferences.getBackgroundCheckResult(context)
+            )
+        }
     }
 
     fun fetchCurrentPrice(watcher: StockWatcher) {
@@ -103,7 +168,13 @@ class WatcherListViewModel(
 
     fun runTestBackgroundCheck() {
         WorkScheduler.runTestBackgroundCheck(getApplication())
-        _systemHealthState.update { it.copy(message = "Background check queued.") }
+        _systemHealthState.update {
+            it.copy(
+                message = "Background check queued.",
+                isBackgroundCheckRunning = true,
+                backgroundJobState = BackgroundJobState.Queued
+            )
+        }
     }
 
     fun clearMessage() {
