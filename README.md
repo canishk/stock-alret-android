@@ -1,6 +1,6 @@
 # Stock Price Alert
 
-Android app that watches Indian stock prices and sends vibrating banner notifications when NSE price crosses your target during market hours (Mon–Fri, 11:00–15:00 IST).
+Android app that watches Indian stock prices and sends vibrating banner notifications when NSE price crosses your target during a configurable trading window (default Mon–Fri, 11:00–15:00 IST).
 
 ## Setup
 
@@ -15,9 +15,20 @@ Android app that watches Indian stock prices and sends vibrating banner notifica
 ## Features
 
 - Add, edit, and delete stock price watchers
-- Background checks every 30 minutes during trading window
+- Configurable trading window and background check interval (default every 15 minutes)
+- Background checks only run inside the trading window; manual fetch is also gated
 - High-priority notifications with vibration showing NSE and BSE prices
 - Skips checks outside market hours or when the exchange API is unavailable
+
+## Settings
+
+Open **Settings** from the watcher list overflow menu (⋮) to configure:
+
+- Trading window start and end time (IST)
+- Weekdays only (Mon–Fri)
+- Background check interval (15, 30, 45, or 60 minutes)
+
+**Test Background Check** bypasses the trading window for debugging.
 
 ## API
 

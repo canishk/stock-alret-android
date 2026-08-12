@@ -67,7 +67,8 @@ import com.stockpricealert.util.DateTimeFormatterUtil
 fun WatcherListScreen(
     viewModel: WatcherListViewModel,
     onAddClick: () -> Unit,
-    onEditClick: (Long) -> Unit
+    onEditClick: (Long) -> Unit,
+    onSettingsClick: () -> Unit
 ) {
     val watchers by viewModel.watchers.collectAsState()
     val priceStates by viewModel.priceStates.collectAsState()
@@ -131,6 +132,13 @@ fun WatcherListScreen(
                         expanded = topBarMenuExpanded,
                         onDismissRequest = { topBarMenuExpanded = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("Settings") },
+                            onClick = {
+                                topBarMenuExpanded = false
+                                onSettingsClick()
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text("Test Background Check") },
                             onClick = {
@@ -241,38 +249,57 @@ fun WatcherListScreen(
 
 @Composable
 private fun BackgroundCheckStatusRow(health: SystemHealthState) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        if (health.isBackgroundCheckRunning) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(14.dp),
-                strokeWidth = 2.dp
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (health.isBackgroundCheckRunning) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    text = "Background: Running...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                val result = health.lastBackgroundResult
+                val text = if (result == null) {
+                    "Background: No check run yet"
+                } else {
+                    val time = DateTimeFormatterUtil.formatEpochMillis(result.completedAt)
+                    "Background: Last run $time — ${result.message}"
+                }
+                val color = when (result?.status) {
+                    BackgroundCheckResult.STATUS_SKIPPED,
+                    BackgroundCheckResult.STATUS_FAILED -> MaterialTheme.colorScheme.error
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = color
+                )
+            }
+        }
+        if (health.tradingWindowSummary.isNotBlank()) {
             Text(
-                text = "Background: Running...",
+                text = "Window: ${health.tradingWindowSummary}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        } else {
-            val result = health.lastBackgroundResult
-            val text = if (result == null) {
-                "Background: No check run yet"
-            } else {
-                val time = DateTimeFormatterUtil.formatEpochMillis(result.completedAt)
-                "Background: Last run $time — ${result.message}"
-            }
-            val color = when (result?.status) {
-                BackgroundCheckResult.STATUS_SKIPPED,
-                BackgroundCheckResult.STATUS_FAILED -> MaterialTheme.colorScheme.error
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
-            }
+        }
+        if (health.checkIntervalSummary.isNotBlank()) {
             Text(
-                text = text,
+                text = "Interval: ${health.checkIntervalSummary}",
                 style = MaterialTheme.typography.bodySmall,
-                color = color
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

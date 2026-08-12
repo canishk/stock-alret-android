@@ -19,11 +19,11 @@ class StockPriceCheckWorker(
         Log.i(TAG, "Background check started (forceRun=$forceRun)")
 
         return try {
-            if (!forceRun && !MarketHoursChecker.isWithinTradingWindow()) {
+            if (!forceRun && !MarketHoursChecker.isWithinTradingWindow(applicationContext)) {
                 Log.d(TAG, "Outside trading window, skipping")
                 saveResult(
                     status = BackgroundCheckResult.STATUS_SKIPPED,
-                    message = "Outside trading window",
+                    message = MarketHoursChecker.formatOutsideWindowMessage(applicationContext),
                     forceRun = forceRun,
                     watchersChecked = 0
                 )

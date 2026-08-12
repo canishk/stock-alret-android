@@ -13,6 +13,7 @@ import com.stockpricealert.domain.StockWatcher
 import com.stockpricealert.notification.AlertNotificationManager
 import com.stockpricealert.util.AppPreferences
 import com.stockpricealert.util.BackgroundHealthHelper
+import com.stockpricealert.util.MarketHoursChecker
 import com.stockpricealert.util.NotificationPermissionHelper
 import com.stockpricealert.worker.StockPriceCheckWorker
 import com.stockpricealert.worker.WorkScheduler
@@ -109,13 +110,24 @@ class WatcherListViewModel(
             it.copy(
                 notificationsEnabled = NotificationPermissionHelper.areNotificationsEnabled(context),
                 batteryUnrestricted = BackgroundHealthHelper.isIgnoringBatteryOptimizations(context),
-                lastBackgroundResult = AppPreferences.getBackgroundCheckResult(context)
+                lastBackgroundResult = AppPreferences.getBackgroundCheckResult(context),
+                tradingWindowSummary = MarketHoursChecker.formatWindowSummary(context),
+                checkIntervalSummary = MarketHoursChecker.formatIntervalSummary(context)
             )
         }
     }
 
     fun fetchCurrentPrice(watcher: StockWatcher) {
         viewModelScope.launch {
+            val context = getApplication<Application>()
+            if (!MarketHoursChecker.isWithinTradingWindow(context)) {
+                val message = MarketHoursChecker.formatOutsideWindowMessage(context)
+                _priceStates.update {
+                    it + (watcher.id to PriceFetchState(error = message))
+                }
+                return@launch
+            }
+
             _priceStates.update {
                 it + (watcher.id to PriceFetchState(isLoading = true))
             }
