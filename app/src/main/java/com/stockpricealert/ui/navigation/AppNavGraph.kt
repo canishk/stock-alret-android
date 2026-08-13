@@ -15,9 +15,12 @@ import com.stockpricealert.ui.form.WatcherFormScreen
 import com.stockpricealert.ui.form.WatcherFormViewModel
 import com.stockpricealert.ui.list.WatcherListScreen
 import com.stockpricealert.ui.list.WatcherListViewModel
+import com.stockpricealert.ui.settings.SettingsScreen
+import com.stockpricealert.ui.settings.SettingsViewModel
 
 object Routes {
     const val LIST = "list"
+    const val SETTINGS = "settings"
     const val FORM = "form?watcherId={watcherId}"
 
     fun formRoute(watcherId: Long? = null): String {
@@ -51,7 +54,21 @@ fun AppNavGraph(
             WatcherListScreen(
                 viewModel = viewModel,
                 onAddClick = { navController.navigate(Routes.formRoute()) },
-                onEditClick = { id -> navController.navigate(Routes.formRoute(id)) }
+                onEditClick = { id -> navController.navigate(Routes.formRoute(id)) },
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
+            )
+        }
+
+        composable(Routes.SETTINGS) {
+            val viewModel: SettingsViewModel = viewModel(
+                factory = SettingsViewModel.Factory(
+                    application = application,
+                    onScheduleUpdated = onDataChanged
+                )
+            )
+            SettingsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
             )
         }
 

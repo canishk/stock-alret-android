@@ -1,6 +1,6 @@
 # Stock Price Alert
 
-Android app that watches Indian stock prices and sends high-priority vibrating notifications when NSE price crosses your target during market hours.
+Android app that watches Indian stock prices and sends high-priority vibrating notifications when NSE price crosses your target during a configurable trading window (default Mon–Fri, 11:00–15:00 IST).
 
 Bull (blue) = **HIGH** alerts when price rises to or above a target. Bear (red) = **LOW** alerts when price falls to or below a target. After an alert fires, the watcher pauses until you resume or edit it.
 
@@ -51,33 +51,46 @@ Bull (blue) = **HIGH** alerts when price rises to or above a target. Bear (red) 
 |---------|----------|---------|
 | RapidAPI key | `local.properties` → `RAPIDAPI_KEY` | — (required) |
 | API host | `app/build.gradle.kts` → `RAPIDAPI_HOST` | `indian-stock-exchange-api2.p.rapidapi.com` |
-| Market hours | `MarketHoursChecker.kt` | Mon–Fri, 11:00–15:00 IST |
-| Background check interval | `WorkScheduler.kt` | Every 30 minutes |
+| Trading window | Settings screen (overflow menu) | Mon–Fri, 11:00–15:00 IST |
+| Background check interval | Settings screen | Every 15 minutes |
 
-Background checks run only during the trading window and when the device has network connectivity.
+Background checks run only during the trading window and when the device has network connectivity. Manual fetch is also gated to the trading window.
 
 ## Features
 
 - Add, edit, and delete stock price watchers
 - Bull/bear themed UI for HIGH and LOW alert types
 - Pause-after-alert: watchers stop polling after triggering; resume or edit to re-arm
-- Manual price fetch per watcher card
+- Manual price fetch per watcher card (within trading window)
+- Configurable trading window and background check interval (15, 30, 45, or 60 minutes)
 - Background checks via WorkManager (survives app restart and device boot)
+- High-priority notifications with vibration showing NSE and BSE prices
 - App health panel: notification permission, battery optimization, last background check status
+- Skips checks outside market hours or when the exchange API is unavailable
+
+## Settings
+
+Open **Settings** from the watcher list overflow menu (⋮) to configure:
+
+- Trading window start and end time (IST)
+- Weekdays only (Mon–Fri)
+- Background check interval (15, 30, 45, or 60 minutes)
+
+**Test Background Check** bypasses the trading window for debugging.
 
 ## Architecture
 
 ```
-Compose UI (WatcherListScreen, WatcherFormScreen)
+Compose UI (WatcherListScreen, WatcherFormScreen, SettingsScreen)
     ↓
-ViewModels (WatcherListViewModel, WatcherFormViewModel)
+ViewModels (WatcherListViewModel, WatcherFormViewModel, SettingsViewModel)
     ↓
 StockRepository
     ├── Room (StockWatcherDao) — local watcher storage
     ├── Retrofit (ApiClient) — RapidAPI stock quotes
     └── shouldTriggerAlert() — edge-triggered alert logic
     ↓
-StockPriceCheckWorker (WorkManager, every 30 min)
+StockPriceCheckWorker (WorkManager, configurable interval)
     ↓
 AlertNotificationManager — high-priority notifications with vibration
 ```
@@ -95,6 +108,7 @@ app/src/main/java/com/stockpricealert/
 ├── ui/
 │   ├── list/           Watcher list screen and ViewModel
 │   ├── form/           Add/edit watcher screen
+│   ├── settings/       Trading window and interval settings
 │   ├── navigation/     NavHost routes
 │   └── theme/          Material3 colors (bull blue / bear red)
 ├── util/               Market hours, permissions, preferences
@@ -119,6 +133,8 @@ GitHub Actions workflow `.github/workflows/build-apk.yml` builds a debug APK on 
 - Requires repository secret: `RAPIDAPI_KEY`
 - APK is uploaded as a **workflow artifact** (30-day retention), not committed to the repository
 - Download from: GitHub → Actions → latest run → Artifacts → `stock-price-alert-debug`
+
+Tag pushes matching `v*` trigger `.github/workflows/release.yml`, which builds a release APK and publishes a GitHub Release.
 
 ## Security
 

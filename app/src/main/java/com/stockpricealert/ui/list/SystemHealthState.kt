@@ -16,6 +16,8 @@ data class SystemHealthState(
     val lastBackgroundResult: BackgroundCheckResult? = null,
     val isBackgroundCheckRunning: Boolean = false,
     val backgroundJobState: BackgroundJobState = BackgroundJobState.Idle,
+    val tradingWindowSummary: String = "",
+    val checkIntervalSummary: String = "",
     val message: String? = null
 ) {
     val isHealthy: Boolean

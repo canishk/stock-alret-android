@@ -9,21 +9,31 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.stockpricealert.util.AppPreferences
+import com.stockpricealert.util.TradingWindowConfig
 import java.util.concurrent.TimeUnit
 
 object WorkScheduler {
     fun schedule(context: Context) {
+        val intervalMinutes = AppPreferences.getTradingWindowConfig(context)
+            .sanitized()
+            .checkIntervalMinutes
+            .coerceAtLeast(TradingWindowConfig.MIN_CHECK_INTERVAL_MINUTES)
+
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        val request = PeriodicWorkRequestBuilder<StockPriceCheckWorker>(30, TimeUnit.MINUTES)
+        val request = PeriodicWorkRequestBuilder<StockPriceCheckWorker>(
+            intervalMinutes.toLong(),
+            TimeUnit.MINUTES
+        )
             .setConstraints(constraints)
             .build()
 
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             StockPriceCheckWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             request
         )
     }
