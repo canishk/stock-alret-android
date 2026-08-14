@@ -28,13 +28,8 @@ android {
         applicationId = "com.stockpricealert"
         minSdk = 26
         targetSdk = 35
-<<<<<<< HEAD
         versionCode = 3
         versionName = "1.0.2"
-=======
-        versionCode = 2
-        versionName = "1.0.1"
->>>>>>> origin/main
 
         buildConfigField(
             "String",
