@@ -39,7 +39,7 @@ jobs:
       - name: Verify release signing secrets
         run: |
           missing=0
-          for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+          for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS; do
             if [ -z "${!name}" ]; then
               echo "$name secret is missing. Add it in repo Settings → Secrets → Actions."
               missing=1
@@ -51,7 +51,6 @@ jobs:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
 
       - name: Decode release keystore
         env:
@@ -78,7 +77,7 @@ jobs:
           echo "RELEASE_STORE_FILE=release.keystore" >> local.properties
           echo "RELEASE_STORE_PASSWORD=${{ secrets.RELEASE_KEYSTORE_PASSWORD }}" >> local.properties
           echo "RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS }}" >> local.properties
-          echo "RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}" >> local.properties
+          echo "RELEASE_KEY_PASSWORD=${RELEASE_KEY_PASSWORD}" >> local.properties
 
       - name: Build release APK
         run: |
