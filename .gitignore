@@ -14,3 +14,4 @@ local.properties.example.bak
 *.apk
 *.ap_
 *.aab
+*.keystore

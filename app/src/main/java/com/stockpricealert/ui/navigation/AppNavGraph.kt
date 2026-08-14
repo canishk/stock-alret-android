@@ -63,6 +63,7 @@ fun AppNavGraph(
             val viewModel: SettingsViewModel = viewModel(
                 factory = SettingsViewModel.Factory(
                     application = application,
+                    repository = repository,
                     onScheduleUpdated = onDataChanged
                 )
             )

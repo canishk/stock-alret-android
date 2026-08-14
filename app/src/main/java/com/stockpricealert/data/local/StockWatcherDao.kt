@@ -16,6 +16,12 @@ interface StockWatcherDao {
     @Query("SELECT * FROM stock_watchers WHERE isActive = 1")
     suspend fun getActiveWatchers(): List<StockWatcherEntity>
 
+    @Query("SELECT * FROM stock_watchers ORDER BY createdAt DESC")
+    suspend fun getAll(): List<StockWatcherEntity>
+
+    @Query("DELETE FROM stock_watchers")
+    suspend fun deleteAll()
+
     @Query("SELECT * FROM stock_watchers WHERE id = :id")
     suspend fun getById(id: Long): StockWatcherEntity?
 

@@ -1,5 +1,6 @@
 package com.stockpricealert.data.repository
 
+import com.stockpricealert.data.backup.WatcherBackup
 import com.stockpricealert.data.local.StockWatcherDao
 import com.stockpricealert.data.local.StockWatcherEntity
 import com.stockpricealert.data.remote.ApiClient
@@ -22,6 +23,26 @@ class StockRepository(
 
     suspend fun getActiveWatchers(): List<StockWatcher> =
         dao.getActiveWatchers().map { it.toDomain() }
+
+    suspend fun getAllWatchers(): List<StockWatcher> =
+        dao.getAll().map { it.toDomain() }
+
+    suspend fun replaceAllWatchers(backups: List<WatcherBackup>): Int {
+        dao.deleteAll()
+        backups.forEach { backup ->
+            dao.insert(backup.toEntity())
+        }
+        return backups.size
+    }
+
+    suspend fun mergeWatchers(backups: List<WatcherBackup>): Int {
+        var imported = 0
+        backups.forEach { backup ->
+            dao.insert(backup.toEntity())
+            imported++
+        }
+        return imported
+    }
 
     suspend fun saveWatcher(watcher: StockWatcher): Long {
         val entity = watcher.toEntity()
@@ -123,6 +144,18 @@ class StockRepository(
         stockName = stockName,
         targetPrice = targetPrice,
         alertType = alertType.name,
+        isActive = isActive,
+        lastNsePrice = lastNsePrice,
+        lastBsePrice = lastBsePrice,
+        lastFetchedAt = lastFetchedAt,
+        createdAt = createdAt
+    )
+
+    private fun WatcherBackup.toEntity() = StockWatcherEntity(
+        id = 0,
+        stockName = stockName,
+        targetPrice = targetPrice,
+        alertType = alertType,
         isActive = isActive,
         lastNsePrice = lastNsePrice,
         lastBsePrice = lastBsePrice,
