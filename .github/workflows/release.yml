@@ -62,9 +62,14 @@ jobs:
         env:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           keytool -list -keystore release.keystore -storepass "$RELEASE_KEYSTORE_PASSWORD" -alias "$RELEASE_KEY_ALIAS"
-          echo "Release keystore verified."
+          KEY_PASS="${RELEASE_KEY_PASSWORD:-$RELEASE_KEYSTORE_PASSWORD}"
+          mkdir -p /tmp/sign-test && echo test > /tmp/sign-test/content.txt
+          jar cf /tmp/sign-test/test.jar -C /tmp/sign-test content.txt
+          jarsigner -keystore release.keystore -storepass "$RELEASE_KEYSTORE_PASSWORD" -keypass "$KEY_PASS" /tmp/sign-test/test.jar "$RELEASE_KEY_ALIAS"
+          echo "Release keystore and key password verified."
 
       - name: Create local.properties
         run: |

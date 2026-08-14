@@ -50,6 +50,7 @@ android {
                 storePassword = signingProperty("RELEASE_STORE_PASSWORD")
                 keyAlias = signingProperty("RELEASE_KEY_ALIAS")
                 keyPassword = signingProperty("RELEASE_KEY_PASSWORD")
+                    ?: signingProperty("RELEASE_STORE_PASSWORD")
             }
         }
     }
