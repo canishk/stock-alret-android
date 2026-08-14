@@ -86,10 +86,14 @@ Release APKs are signed with a stable release keystore (from v1.0.2 onward). Ear
 
 ### Migrate without losing watchers or settings
 
+**If you can open the app** (any version with Export, or after a successful in-place upgrade):
+
 1. On the **currently installed app**: Settings → **Export data** → save `stock-watchers-backup.json`
 2. Uninstall the old app (required when signatures differ)
 3. Install the latest release APK from [GitHub Releases](https://github.com/canishk/stock-alret-android/releases)
 4. Open Settings → **Import data** → select the JSON file
+
+**If you are on v1.0.0 or v1.0.1 from GitHub and cannot install the update** (signing conflict, no Export yet): build and install from source on your PC (`./gradlew assembleRelease`) if the app was originally installed via Android Studio — that upgrade keeps your data and includes Export. Otherwise you will need to re-add watchers manually after installing v1.0.2.
 
 ### Normal upgrade (same signing key)
 
