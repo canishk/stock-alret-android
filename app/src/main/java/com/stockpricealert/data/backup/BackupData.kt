@@ -4,8 +4,10 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import com.stockpricealert.util.TradingWindowConfig
 
+private const val BACKUP_VERSION = 1
+
 data class BackupData(
-    val version: Int = CURRENT_VERSION,
+    val version: Int = BACKUP_VERSION,
     val exportedAt: Long,
     val watchers: List<WatcherBackup>,
     val tradingWindow: TradingWindowBackup?
@@ -52,7 +54,7 @@ data class TradingWindowBackup(
 }
 
 object BackupJson {
-    const val CURRENT_VERSION = 1
+    const val CURRENT_VERSION = BACKUP_VERSION
     const val MIME_TYPE = "application/json"
     const val DEFAULT_FILENAME = "stock-watchers-backup.json"
 
