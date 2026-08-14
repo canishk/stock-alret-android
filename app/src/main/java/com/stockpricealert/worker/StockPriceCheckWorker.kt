@@ -20,13 +20,7 @@ class StockPriceCheckWorker(
 
         return try {
             if (!forceRun && !MarketHoursChecker.isWithinTradingWindow(applicationContext)) {
-                Log.d(TAG, "Outside trading window, skipping")
-                saveResult(
-                    status = BackgroundCheckResult.STATUS_SKIPPED,
-                    message = MarketHoursChecker.formatOutsideWindowMessage(applicationContext),
-                    forceRun = forceRun,
-                    watchersChecked = 0
-                )
+                Log.d(TAG, "Outside trading window, skipping silently")
                 return Result.success()
             }
 
@@ -50,6 +44,11 @@ class StockPriceCheckWorker(
             var apiFailures = 0
 
             for (watcher in watchers) {
+                if (!forceRun && !MarketHoursChecker.isWithinTradingWindow(applicationContext)) {
+                    Log.d(TAG, "Trading window ended mid-run, stopping")
+                    break
+                }
+
                 val quoteResult = repository.fetchQuote(watcher.stockName)
                 if (quoteResult.isFailure) {
                     apiFailures++
