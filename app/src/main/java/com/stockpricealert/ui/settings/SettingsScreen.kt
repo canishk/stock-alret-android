@@ -1,5 +1,7 @@
 package com.stockpricealert.ui.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.stockpricealert.data.backup.BackupJson
 import com.stockpricealert.util.TradingWindowConfig
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -57,11 +60,53 @@ fun SettingsScreen(
     var intervalExpanded by remember { mutableStateOf(false) }
     val timeFormatter = remember { DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH) }
 
+    var pendingExportJson by remember { mutableStateOf<String?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(BackupJson.MIME_TYPE)
+    ) { uri ->
+        val json = pendingExportJson
+        pendingExportJson = null
+        if (uri != null && json != null) {
+            viewModel.writeExportToUri(uri, json)
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.readImportFromUri(uri)
+        }
+    }
+
     LaunchedEffect(state.savedMessage) {
         state.savedMessage?.let { message ->
             snackbarHostState.showSnackbar(message)
             viewModel.clearSavedMessage()
         }
+    }
+
+    if (state.pendingImportJson != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelImport,
+            title = { Text("Import backup?") },
+            text = {
+                Text(
+                    "This will replace all existing watchers and restore settings from the backup file."
+                )
+            },
+            confirmButton = {
+                Button(onClick = viewModel::confirmImport) {
+                    Text("Replace all")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = viewModel::cancelImport) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     if (showStartPicker) {
@@ -227,6 +272,38 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Save")
+            }
+
+            Text(
+                text = "Data backup",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Text(
+                text = "Export watchers and settings before upgrading if install fails due to a signing conflict.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            OutlinedButton(
+                onClick = {
+                    viewModel.exportBackup { json ->
+                        pendingExportJson = json
+                        exportLauncher.launch(BackupJson.DEFAULT_FILENAME)
+                    }
+                },
+                enabled = !state.isBackupBusy,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Export data")
+            }
+
+            OutlinedButton(
+                onClick = { importLauncher.launch(arrayOf(BackupJson.MIME_TYPE, "*/*")) },
+                enabled = !state.isBackupBusy,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Import data")
             }
         }
     }

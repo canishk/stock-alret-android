@@ -67,6 +67,7 @@ Background checks run only during the trading window and when the device has net
 - High-priority notifications with vibration showing NSE and BSE prices
 - App health panel: notification permission, battery optimization, last background check status
 - Skips checks outside market hours or when the exchange API is unavailable
+- Export / import watchers and settings (JSON backup for upgrades)
 
 ## Settings
 
@@ -75,8 +76,53 @@ Open **Settings** from the watcher list overflow menu (⋮) to configure:
 - Trading window start and end time (IST)
 - Weekdays only (Mon–Fri)
 - Background check interval (15, 30, 45, or 60 minutes)
+- **Export data** / **Import data** — JSON backup of all watchers and settings
 
 **Test Background Check** bypasses the trading window for debugging.
+
+## Upgrading the app
+
+Release APKs are signed with a stable release keystore (from v1.0.2 onward). Earlier releases used ephemeral debug keys, which can cause **"App not installed as package conflicts with an existing package"** when upgrading.
+
+### Migrate without losing watchers or settings
+
+**If you can open the app** (any version with Export, or after a successful in-place upgrade):
+
+1. On the **currently installed app**: Settings → **Export data** → save `stock-watchers-backup.json`
+2. Uninstall the old app (required when signatures differ)
+3. Install the latest release APK from [GitHub Releases](https://github.com/canishk/stock-alret-android/releases)
+4. Open Settings → **Import data** → select the JSON file
+
+**If you are on v1.0.0 or v1.0.1 from GitHub and cannot install the update** (signing conflict, no Export yet): build and install from source on your PC (`./gradlew assembleRelease`) if the app was originally installed via Android Studio — that upgrade keeps your data and includes Export. Otherwise you will need to re-add watchers manually after installing v1.0.2.
+
+### Normal upgrade (same signing key)
+
+If you installed from a recent GitHub release (v1.0.2+), install the newer APK directly — watchers and settings are preserved.
+
+## Release signing setup (maintainers)
+
+Before tagging `v1.0.2` or later, add these GitHub Actions secrets (Settings → Secrets → Actions):
+
+| Secret | Description |
+|--------|-------------|
+| `RELEASE_KEYSTORE_BASE64` | Base64-encoded `release.keystore` file |
+| `RELEASE_KEYSTORE_PASSWORD` | Keystore password |
+| `RELEASE_KEY_ALIAS` | Key alias (`stockpricealert`) |
+| `RELEASE_KEY_PASSWORD` | Key password |
+
+Generate the keystore once:
+
+```bash
+keytool -genkeypair -v \
+  -keystore release.keystore \
+  -alias stockpricealert \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -storepass "YOUR_STORE_PASSWORD" \
+  -keypass "YOUR_KEY_PASSWORD" \
+  -dname "CN=Stock Price Alert, OU=Mobile, O=canishk, C=IN"
+```
+
+Back up `release.keystore` securely — losing it prevents publishing upgrades. See `local.properties.example` for optional local release signing.
 
 ## Architecture
 
@@ -101,6 +147,7 @@ AlertNotificationManager — high-priority notifications with vibration
 app/src/main/java/com/stockpricealert/
 ├── data/
 │   ├── local/          Room database, entities, DAO
+│   ├── backup/         JSON export/import for watchers and settings
 │   ├── remote/         Retrofit API client and models
 │   └── repository/     StockRepository (domain data access)
 ├── domain/             StockWatcher, AlertType models
@@ -134,7 +181,7 @@ GitHub Actions workflow `.github/workflows/build-apk.yml` builds a debug APK on 
 - APK is uploaded as a **workflow artifact** (30-day retention), not committed to the repository
 - Download from: GitHub → Actions → latest run → Artifacts → `stock-price-alert-debug`
 
-Tag pushes matching `v*` trigger `.github/workflows/release.yml`, which builds a release APK and publishes a GitHub Release.
+Tag pushes matching `v*` trigger `.github/workflows/release.yml`, which builds a signed release APK and publishes a GitHub Release. Release builds require the signing secrets listed in [Release signing setup](#release-signing-setup-maintainers).
 
 ## Security
 

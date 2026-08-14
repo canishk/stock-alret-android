@@ -14,6 +14,12 @@ val localProperties = Properties().apply {
     }
 }
 
+fun signingProperty(name: String): String? =
+    localProperties.getProperty(name) ?: System.getenv(name)
+
+val releaseStoreFile = signingProperty("RELEASE_STORE_FILE")?.let { rootProject.file(it) }
+val hasReleaseKeystore = releaseStoreFile != null && releaseStoreFile.exists()
+
 android {
     namespace = "com.stockpricealert"
     compileSdk = 35
@@ -22,8 +28,13 @@ android {
         applicationId = "com.stockpricealert"
         minSdk = 26
         targetSdk = 35
+<<<<<<< HEAD
+        versionCode = 3
+        versionName = "1.0.2"
+=======
         versionCode = 2
         versionName = "1.0.1"
+>>>>>>> origin/main
 
         buildConfigField(
             "String",
@@ -37,10 +48,25 @@ android {
         )
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = signingProperty("RELEASE_STORE_PASSWORD")
+                keyAlias = signingProperty("RELEASE_KEY_ALIAS")
+                keyPassword = signingProperty("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

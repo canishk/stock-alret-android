@@ -1,2 +1,8 @@
 sdk.dir=/path/to/Android/Sdk
 RAPIDAPI_KEY=your_rapidapi_key_here
+
+# Optional — release APK signing (same keystore as CI; never commit the keystore file)
+# RELEASE_STORE_FILE=/absolute/path/to/release.keystore
+# RELEASE_STORE_PASSWORD=your_store_password
+# RELEASE_KEY_ALIAS=stockpricealert
+# RELEASE_KEY_PASSWORD=your_key_password
